@@ -1,26 +1,86 @@
-// export { fetchCountries };
+import './css/styles.css';
+import { fetchCountries } from './css/js/fetchCountries';
+import debounce from 'lodash.debounce';
+// import Notiflix from 'notiflix';
+import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
-// const BASE_URL = 'https://restcountries.com/v3.1';
+const DEBOUNCE_DELAY = 300;
 
-// function fetchCountries(name) {
-    
-//   return fetch(
-//     `${BASE_URL}/name/${name}?fields=name,capital,population,flags,languages`
-//   ).then(resp => {
-//     if (!resp.ok) {
-//       throw new Error(resp.statusText);
-//     }
+const refs = {
+  input: document.querySelector('#search-box'),
+  list: document.querySelector('.country-list'),
+  info: document.querySelector('.country-info'),
+};
 
-//     return resp.json();
-//   });
-// }
+refs.input.addEventListener('input', debounce(onCountryInput, DEBOUNCE_DELAY));
 
-export function fetchCountries(name) {
-  return fetch('https://restcountries.com/v3.1/name/${name}?fields=name,capital,population,flags,languages'
-  ).then(response => {
-    if (!response.ok) {
-      throw new Error(response.status);
-    }
-    return response.json();
-  });
+function onCountryInput() {
+  const countryName = refs.input.value.trim();
+  // console.log('countryName:', countryName);
+
+  if (!countryName) {
+    clearBody();
+  }
+
+  fetchCountries(countryName)
+    .then(countries => {
+      clearBody();
+      if (countries.length > 10) {
+        clearBody();
+        alertTooManyMatches();
+        return;
+      } else if (countries.length === 1) {
+        refs.list.innerHTML = '';
+        refs.info.innerHTML = onCountryMarkup(countries);
+        return;
+      } else if (countries.length > 1 && countries.length < 10) {
+        refs.info.innerHTML = '';
+        refs.list.innerHTML = onCountiesListMarkup(countries);
+        return;
+      } else if (!countries.includes(countryName)) {
+        clearBody();
+      }
+    })
+    .catch(alertWrongName);
+}
+
+function onCountryMarkup(country) {
+  return country
+    .map(
+      ({ name, capital, population, flags, languages }) =>
+        `<div class = "country-item"><img src="${flags.svg}" alt="${
+          name.official
+        }" width='64' height = '40'>
+        <h1 class="country-text">${name.official}</h1></div>
+        <p class="country-text-info">Capital: ${capital}</p>
+        <p class="country-text-info">Population: ${population}</p>
+        <p class="country-text-info">Languages: ${Object.values(languages)} </p>
+        `
+    )
+    .join('');
+}
+
+function onCountiesListMarkup(countries) {
+  return countries
+    .map(
+      ({ name, flags }) =>
+        `<li class="country-item"><img src="${flags.svg}" alt="${name.official}" width='32' height = '20'>
+        <p class="country-text">${name.official}</p></li>`
+    )
+    .join('');
+}
+
+function alertTooManyMatches() {
+  Notify.info('Too many matches found. Please enter a more specific name.');
+}
+
+function alertWrongName() {
+  Notify.failure('Oops, there is no country with that name');
+  clearBody();
+  return;
+}
+
+function clearBody() {
+  refs.info.innerHTML = '';
+  refs.list.innerHTML = '';
 }
